@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Replaces the __BASE_URL__ placeholder in the pages and writes sitemap.xml and robots.txt.
+# Usage: scripts/prepare-site.sh <site-dir> <base-url, no trailing slash>
+set -euo pipefail
+
+dir="${1:?site dir required}"
+base="${2:?base url required}"
+base="${base%/}"
+
+# Version stamp (commit id when available) so browsers and the Pages CDN never serve stale scripts or styles.
+ver="${GITHUB_SHA:-dev}"
+ver="${ver:0:8}"
+
+for f in "$dir"/*.html; do
+  sed -i "s|__BASE_URL__|${base}|g" "$f"
+  sed -i -E "s#(assets/(css|js)/[A-Za-z0-9_.-]+\.(css|js))#\1?v=${ver}#g" "$f"
+done
+
+{
+  echo '<?xml version="1.0" encoding="UTF-8"?>'
+  echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+  for page in ""; do
+    echo "  <url><loc>${base}/${page}</loc></url>"
+  done
+  echo '</urlset>'
+} > "$dir/sitemap.xml"
+
+printf 'User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n' "$base" > "$dir/robots.txt"
+echo "Prepared $dir for $base"
